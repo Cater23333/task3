@@ -1,0 +1,124 @@
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+
+%\usepackage{ctex} % 中文支持
+\usepackage{fancyhdr}
+\usepackage{multicol} % 正文单双栏混排
+\usepackage{lastpage} % 用于获得最大页数，页眉显示用
+\usepackage{geometry} % 用于设置页边距
+\usepackage[subfigure,AllowH]{graphfig} %图片相关
+\usepackage{graphicx}  %插入图片
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{subfig}  
+\usepackage{multirow}
+\usepackage{array}
+
+
+%geometry使用手册
+%http://www.ctex.org/documents/packages/layout/geometry.htm
+
+%\geometry{left=3cm,right=3.8cm,top=2.5cm,bottom=2.5cm}
+
+%定义行间距为1.1倍行距
+\renewcommand{\baselinestretch}{2}
+%重新定义缩进长度 pt是字号
+\parindent 22pt
+
+
+% 页眉页脚定义
+% 因为首页会自动定义成plain格式 http://www.ctex.org/documents/packages/layout/fancyhdr.htm
+% but我喜欢每一页都有页眉，so重定义plain型，
+% 后面就全设置成plain型好了orz，其实应该改成fancy型再设置fancy的属性
+
+\fancypagestyle{plain}{
+\fancyhf{}
+%\lhead{Month, Year}
+%\chead{\centering{chinese latex template}}
+%\rhead{Page \thepage\ of \pageref{LastPage}}
+\lfoot{}
+\cfoot{}
+\rfoot{}}
+\pagestyle{plain}
+
+
+% texbf{…}为加粗
+% huge{…}等等调节字体的
+\title{第一次作业报告}
+\author{姓名：魏宇凡\quad 学号：PB21020576 \quad 日期：2023年3月27日}
+\date{} 
+
+
+\begin{document}
+
+\maketitle
+
+
+% 中文摘要
+% 调整摘要、关键词，中图分类号的页边距
+% 中英文同时调整
+% 因为geometry命令不能用在正文区只能用这看起来很麻烦的方法了orz
+
+\setlength{\oddsidemargin}{ 1cm} % 3.17cm - 1 inch
+\setlength{\evensidemargin}{\oddsidemargin}
+\setlength{\textwidth}{13.50cm}
+
+%添加标题和摘要的距离
+%vspace{…}是竖直距离
+%hspace{…}是水平距离
+\vspace{-0.2cm}
+%center是居中用的
+
+\vspace{0.5cm}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 正文由此开始－－－－－－－－－－－－－－－－－－－－－－－－－
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 恢复正文页边距
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setlength{\oddsidemargin}{-.5cm} % 3.17cm - 1 inch
+\setlength{\evensidemargin}{\oddsidemargin}
+\setlength{\textwidth}{24.00cm}
+
+
+
+
+
+{\large\textbf{1，任务目标：}}\\
+该代码实现了输入计算机科学家姓名，然后可以返回其所有文献标题并展示的功能。\\
+
+
+{\large\textbf{2，实验细节：}}\\
+
+
+1，API的使用：\\
+本次实验调用了requests与bs4中的BeautifulSoup\ API,其中requests包中的get函数需要str类型的参数，返回requests.models.Response类型，然后通过content再
+转换为bytes，接着经过bs4包中的bs4.BeautifulSoup进行处理。\\
+
+
+
+2,自定义函数与类：\\
+本次实验自定义函数为findweb与getart_name。findweb用于找到与姓名对应的网址，其输入参数为str，即科学家的名字，返回参数也为str，是姓名对应的网址
+而getart_name负责记录该网站上所有的文章标题，其输入参数为str，为对应的网址，返回参数为list，其中每个元素都为一个文章的标题。\\
+
+
+3，实验困难与解决方案：\\
+第一个困难就是不熟悉不同API中对应函数的用法。于是通过csdn社区查询语法开始上手。接着就是查询姓名后会返回许多名字相近的科学家的网址，于是需要去判断是哪个符合
+要求，所幸该网站的检索是符合程度越高的排在越前面，于是只要返回第一个读到的网址即可
+
+
+
+{\large\textbf{3，实验总结：}}\\
+
+
+
+
+{\large\textbf{4，界面布局：}}\\
+
+   
+   
+\end{document}
