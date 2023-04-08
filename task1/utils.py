@@ -27,7 +27,8 @@ def getart_name(url):  #this function is to get the title of article
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_MainWindow(object):  # use QTDesigner to convert ui to py
+
+class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(683, 415)
@@ -40,15 +41,15 @@ class Ui_MainWindow(object):  # use QTDesigner to convert ui to py
         self.pushButton.setGeometry(QtCore.QRect(70, 90, 141, 51))
         self.pushButton.setMaximumSize(QtCore.QSize(151, 51))
         self.pushButton.setObjectName("pushButton")
-        self.textEdit = QtWidgets.QTextEdit(self.centralwidget)
-        self.textEdit.setGeometry(QtCore.QRect(220, 160, 341, 201))
-        self.textEdit.setObjectName("textEdit")
         self.plainTextEdit = QtWidgets.QPlainTextEdit(self.centralwidget)
         self.plainTextEdit.setGeometry(QtCore.QRect(370, 30, 231, 51))
         self.plainTextEdit.setObjectName("plainTextEdit")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(70, 240, 111, 51))
         self.label_2.setObjectName("label_2")
+        self.plainTextEdit_2 = QtWidgets.QPlainTextEdit(self.centralwidget)
+        self.plainTextEdit_2.setGeometry(QtCore.QRect(300, 140, 271, 181))
+        self.plainTextEdit_2.setObjectName("plainTextEdit_2")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 683, 22))
@@ -80,4 +81,8 @@ class MyApp(QtWidgets.QMainWindow): #define a window class for main function to 
             name = str(self.__ui.plainTextEdit.toPlainText()) #get value from plainTextEdit
             url=findweb(name)
             art_name = getart_name(url)
-            self.__ui.textEdit.setText(str(art_name)) #put list into textEdit
+            for i,j in enumerate(art_name):
+            #self.__ui.plainTextEdit_2.setPlainText((art_name[0]))  # put list into textEdit
+                self.__ui.plainTextEdit_2.insertPlainText(str(i+1)+','+j+'\n'+'\n')  #put list into textEdit
+
+
