@@ -6,6 +6,8 @@ import time
 import warnings
 from enum import Enum
 
+import matplotlib.pyplot as plt
+import os
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -20,26 +22,145 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
+from torch.utils.data import Dataset
+import torch.nn.functional as F
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+import os.path
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple
+from typing import Union
+from torch.utils.tensorboard import SummaryWriter
+from PIL import Image
+from torchvision.datasets.vision import VisionDataset
+
+
+class MyDataset(Dataset):
+    def __init__(self, root_dir, names_file, transform=None):
+        self.root_dir = root_dir  # 根目录
+        self.names_file = names_file  # .txt文件路径
+        self.transform = transform  # 数据预处理
+        self.size = 0  # 数据集大小
+        self.names_list = []  # 数据集路径列表
+
+        if not os.path.isfile(self.names_file):
+            print(self.names_file + 'does not exist!')
+        file = open(self.names_file)
+        for f in file:  # 循环读取.txt文件总每行数据信息
+            self.names_list.append(f)
+            self.size += 1
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        image_path = self.root_dir + self.names_list[index].split(' ')[0]  # 获取图片数据路径
+        if not os.path.isfile(image_path):
+            print(image_path + ' does not exist!')
+            return None
+        image = Image.open(image_path)
+        image = image.convert('RGB') # 读取图片
+        label = int(self.names_list[index].split(' ')[1])  # 读取标签
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        return image, label
+
+
+
+
+
+# 定义残差块ResBlock
+class ResBlock(nn.Module):
+    def __init__(self, inchannel, outchannel, stride=1):
+        super(ResBlock, self).__init__()
+        # 这里定义了残差块内连续的2个卷积层
+        self.left = nn.Sequential(
+            nn.Conv2d(inchannel, outchannel, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(outchannel),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(outchannel, outchannel, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(outchannel)
+        )
+        self.shortcut = nn.Sequential()
+        if stride != 1 or inchannel != outchannel:
+            # shortcut，这里为了跟2个卷积层的结果结构一致，要做处理
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(inchannel, outchannel, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(outchannel)
+            )
+
+    def forward(self, x):
+        out = self.left(x)
+        # 将2个卷积层的输出跟处理过的x相加，实现ResNet的基本结构
+        out = out + self.shortcut(x)
+        out = F.relu(out)
+
+        return out
+
+
+class ResNet(nn.Module):
+    def __init__(self, ResBlock, num_classes=200):
+        super(ResNet, self).__init__()
+        self.inchannel = 64
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU()
+        )
+        self.layer1 = self.make_layer(ResBlock, 64, 2, stride=1)
+        self.layer2 = self.make_layer(ResBlock, 128, 2, stride=2)
+        self.layer3 = self.make_layer(ResBlock, 256, 2, stride=2)
+        self.layer4 = self.make_layer(ResBlock, 512, 2, stride=2)
+        self.fc = nn.Linear(512*4, num_classes)
+
+    # 这个函数主要是用来，重复同一个残差块
+    def make_layer(self, block, channels, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.inchannel, channels, stride))
+            self.inchannel = channels
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        # 在这里，整个ResNet18的结构就很清晰了
+        out = self.conv1(x)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+        #out=out.reshape(-1)
+        return out
+
+
+
+torch.backends.cudnn.enabled = False
+
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR', nargs='?', default='imagenet',
-                    help='path to dataset (default: imagenet)')
+parser.add_argument('data', metavar='DIR', nargs='?', default='C:/Users/15365/dl_work/task2/tiny-imagenet-200',
+                    help='path to dataset (default: C:/Users/15365/dl_work/task2/tiny-imagenet-200)')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet18)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=8, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -53,7 +174,7 @@ parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
+parser.add_argument('--resume', default='mycheckpoint.pth.tar', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -136,13 +257,22 @@ def main_worker(gpu, ngpus_per_node, args):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
+
     # create model
+    print(args.arch)
     if args.pretrained:
         print("=> using pre-trained model '{}'".format(args.arch))
         model = models.__dict__[args.arch](pretrained=True)
+
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
+        #model = models.__dict__[args.arch]()
+
+        model=ResNet(ResBlock)
+
+
+        #model_path = 'C:/Users/15365/dl_work/task2/code/pythonProject/checkpoint.pth.tar'
+        #model=myloadmodel(model_path,optimizer,epoch,state_dict,scheduler,best_acc1)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         print('using CPU, this will be slow')
@@ -178,6 +308,8 @@ def main_worker(gpu, ngpus_per_node, args):
             model.cuda()
         else:
             model = torch.nn.DataParallel(model).cuda()
+
+
 
     if torch.cuda.is_available():
         if args.gpu:
@@ -222,6 +354,9 @@ def main_worker(gpu, ngpus_per_node, args):
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading code
+    print(1)
+
+
     if args.dummy:
         print("=> Dummy data is used!")
         train_dataset = datasets.FakeData(1281167, (3, 224, 224), 1000, transforms.ToTensor())
@@ -232,23 +367,21 @@ def main_worker(gpu, ngpus_per_node, args):
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
 
-        train_dataset = datasets.ImageFolder(
-            traindir,
-            transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ]))
+        print(2)
+        print(traindir)
 
-        val_dataset = datasets.ImageFolder(
-            valdir,
-            transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ]))
+        transform = transforms.Compose([
+            transforms.ToTensor(),  # 将图片转换为Tensor,归一化至[0,1]
+            normalize
+        ])
+        train_dataset = datasets.ImageFolder(traindir, transform=transform)
+
+        val_set = 'C:/Users/15365/dl_work/task2/tiny-imagenet-200/val/images/'
+        name = r'C:\Users\15365\dl_work\task2\tiny-imagenet-200\val\retag2.txt'
+        val_dataset = MyDataset(root_dir=val_set, names_file=name, transform=transform)
+
+
+        print(3)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -266,10 +399,13 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
 
     if args.evaluate:
-        validate(val_loader, model, criterion, args)
+        validate(val_loader, model, criterion, args,1)
         return
 
+    print(4)
+
     for epoch in range(args.start_epoch, args.epochs):
+
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
@@ -277,7 +413,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, device, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = validate(val_loader, model, criterion, args,epoch)
 
         scheduler.step()
 
@@ -312,8 +448,12 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     model.train()
 
     end = time.time()
+
     for i, (images, target) in enumerate(train_loader):
         # measure data loading time
+
+
+
         data_time.update(time.time() - end)
 
         # move data to the same device as model
@@ -322,13 +462,16 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
 
         # compute output
         output = model(images)
+
         loss = criterion(output, target)
+
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
+
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -343,7 +486,17 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
             progress.display(i + 1)
 
 
-def validate(val_loader, model, criterion, args):
+
+    writer = SummaryWriter(log_dir='scalar')
+    writer.add_scalars('scalar/train', {'train_Loss': losses.avg, 'train_acc1': top1.avg,
+                                            'train_acc5': top5.avg}, epoch)
+    writer.close()
+
+
+
+
+
+def validate(val_loader, model, criterion, args, epoch):
     def run_validate(loader, base_progress=0):
         with torch.no_grad():
             end = time.time()
@@ -383,6 +536,8 @@ def validate(val_loader, model, criterion, args):
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 
+
+
     # switch to evaluate mode
     model.eval()
 
@@ -401,13 +556,18 @@ def validate(val_loader, model, criterion, args):
 
     progress.display_summary()
 
+    writer = SummaryWriter(log_dir='scalar')
+    writer.add_scalars('scalar/val', {'val_Loss': losses.avg, 'val_acc1': top1.avg,
+                                      'val_acc5': top5.avg}, epoch)
+    writer.close()
+
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='mycheckpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, 'mymodel_best.pth.tar')
 
 
 class Summary(Enum):
