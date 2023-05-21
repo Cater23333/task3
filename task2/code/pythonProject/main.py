@@ -25,7 +25,6 @@ from torch.utils.data import Subset
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 import numpy as np
-from PIL import Image
 import matplotlib.pyplot as plt
 import os.path
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple
@@ -381,7 +380,7 @@ def main_worker(gpu, ngpus_per_node, args):
         val_dataset = MyDataset(root_dir=val_set, names_file=name, transform=transform)
 
 
-        print(3)
+
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -402,7 +401,7 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args,1)
         return
 
-    print(4)
+
 
     for epoch in range(args.start_epoch, args.epochs):
 
@@ -564,10 +563,10 @@ def validate(val_loader, model, criterion, args, epoch):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='mycheckpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='mycheckpoint2.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'mymodel_best.pth.tar')
+        shutil.copyfile(filename, 'mymodel_best2.pth.tar')
 
 
 class Summary(Enum):
